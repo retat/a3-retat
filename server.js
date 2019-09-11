@@ -44,20 +44,20 @@ app.use(passport.session());
 function isLoggedIn(req, res, next) {
     if (req.isAuthenticated())
         return next();
-    res.redirect("/login")
+    res.redirect("/")
 }
 // api endpoints for login, content and logout
-app.get("/login", function (req, res) {
-    res.send("<p>Please login!</p><form method='post' action='/login'><input type='text' name='username'/><input type='password' name='password'/><button type='submit' value='submit'>Submit</buttom></form>");
-});
+app.get("/home", isLoggedIn, function(req, res){
+    res.sendFile(__dirname + "/public/home.html")
+})
 app.post("/login", 
          passport.authenticate("local-login", { failureRedirect: "/login"}),
          function (req, res) {
-    res.redirect("/");
+    res.redirect("/home");
 });
 app.get("/logout", function (req, res) {
     req.logout();
-    res.send("logout success!");
+    res.redirect("/")
 });
 
 app.post( '/submit', isLoggedIn, function( request, response ) {
