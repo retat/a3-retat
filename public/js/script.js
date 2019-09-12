@@ -9,6 +9,7 @@ function postData(json, path){
     (async () => {
         const rawResponse = await fetch(path, {
             method: 'POST',
+            credentials: 'include',
             headers: {
                 'Accept': 'application/json',
                 'Content-Type': 'application/json'

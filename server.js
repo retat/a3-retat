@@ -1,121 +1,118 @@
-const express         = require('express'),
-      app             = express(),
-      passport        = require('passport'),
-      LocalStrategy   = require('passport-local').Strategy,
-      bodyParser      = require('body-parser'),
-      session         = require('express-session'),
-      mime = require( 'mime' ),
-      fs   = require( 'fs' ),
-      router = express.Router(),
-      appdata     = []
-
-const users = [{"id":111, "username":"rene", "password":"password"}];
-
-// passport needs ability to serialize and unserialize users out of session
-passport.serializeUser(function (user, done) {
-    done(null, users[0].id);
-});
-passport.deserializeUser(function (id, done) {
-    done(null, users[0]);
-});
-
-// passport local strategy for local-login, local refers to this app
+const express = require('express'),
+    app = express(),
+    passport = require('passport'),
+    LocalStrategy = require('passport-local').Strategy,
+    bodyParser = require('body-parser'),
+    session = require('express-session')
+//todo put into DB!
+const appdata = []
+const users = [{"username": "rene", "password": "password"}]
+passport.serializeUser((user, done) => done(null, user.username))
+passport.deserializeUser((username, done) => {
+    const user = users.find(u => u.username === username)
+    console.log('deserializing:', username)
+    if (user !== undefined) {
+        done(null, user)
+    } else {
+        done(null, false, {message: 'user not found; session not restored'})
+    }
+})
 passport.use('local-login', new LocalStrategy(
     function (username, password, done) {
+        getUserFromDB(username)
         if (username === users[0].username && password === users[0].password) {
-            return done(null, users[0]);
+            return done(null, users[0])
         } else {
-            return done(null, false, {"message": "User not found."});
+            return done(null, false, {"message": "User not found."})
         }
     })
-            );
-
-app.use(express.static( 'public' ) )
-app.use(bodyParser.json()); 
-app.use(bodyParser.urlencoded({ extended: true }));
+)
+app.use(express.static('public'))
+app.use(bodyParser.json())
+app.use(bodyParser.urlencoded({extended: true}))
 app.use(session({
+    //todo put secret in db
     secret: "tHiSiSasEcRetStr",
-    resave: true,
-    saveUninitialized: true }));
-app.use(passport.initialize());
-app.use(passport.session());
+    resave: false,
+    saveUninitialized: false
+}))
+app.use(passport.initialize())
+app.use(passport.session())
 
-// route middleware to ensure user is logged in
 function isLoggedIn(req, res, next) {
     if (req.isAuthenticated())
-        return next();
+        return next()
     res.redirect("/")
 }
-// api endpoints for login, content and logout
-app.get("/home", isLoggedIn, function(req, res){
+
+function getUserFromDB(username) {
+    const url = "mongodb+srv://root:admin@cluster0-qdoiu.azure.mongodb.net/test?retryWrites=true&w=majority"
+    const mongo = require('mongodb').MongoClient
+    let user
+    mongo.connect(url, {
+        useNewUrlParser: true,
+        useUnifiedTopology: true
+    }, (err, client) => {
+        if (err) {
+            console.error(err)
+            return
+        }
+        const db = client.db('AssignmentApp')
+        const collection = db.collection('user')
+        collection.find({}).toArray((err, items) => {
+            console.log(items[0])
+        })
+    })
+}
+
+app.get("/home", isLoggedIn, function (req, res) {
     res.sendFile(__dirname + "/public/home.html")
 })
-app.post("/login", 
-         passport.authenticate("local-login", { failureRedirect: "/login"}),
-         function (req, res) {
-    res.redirect("/home");
-});
+app.post("/login",
+    passport.authenticate("local-login", {failureRedirect: "/login"}),
+    function (req, res) {
+        res.redirect("/home")
+    })
 app.get("/logout", function (req, res) {
-    req.logout();
+    req.logout()
     res.redirect("/")
-});
+})
 
-app.post( '/submit', isLoggedIn, function( request, response ) {
+app.post('/submit', isLoggedIn, function (request, response) {
     let parsedData = request.body
-    appdata.push({ 'Note': parsedData.Note, 'Date': createDate(parsedData.Date), 'Days': daysRemaining(parsedData.Date)})
-    response.writeHead(200, {"Content-Type": "application/json"});
+    appdata.push({'Note': parsedData.Note, 'Date': createDate(parsedData.Date), 'Days': daysRemaining(parsedData.Date)})
+    response.writeHead(200, {"Content-Type": "application/json"})
     response.end(JSON.stringify(appdata))
 })
 
-app.post( '/refresh', isLoggedIn, function( request, response ) {
-    response.writeHead(200, {"Content-Type": "application/json"});
+app.post('/refresh', isLoggedIn, function (request, response) {
+    response.writeHead(200, {"Content-Type": "application/json"})
     response.end(JSON.stringify(appdata))
 })
 
-app.post( '/delete', isLoggedIn, function( request, response ) {
+app.post('/delete', isLoggedIn, function (request, response) {
     let parsedData = request.body
     let item = parsedData.Item
     console.log("trying to delete " + item)
-    appdata.splice(item-1, 1)
-    response.writeHead(200, {"Content-Type": "application/json"});
+    appdata.splice(item - 1, 1)
+    response.writeHead(200, {"Content-Type": "application/json"})
     response.end(JSON.stringify(appdata))
 })
 
-function createDate(date){
-    let options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+function createDate(date) {
+    let options = {weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'}
     let dateArray = date.split('-')
-    return new Date(dateArray[0], dateArray[1]-1, dateArray[2]).toLocaleDateString("en-US", options)
+    return new Date(dateArray[0], dateArray[1] - 1, dateArray[2]).toLocaleDateString("en-US", options)
 }
 
-function daysRemaining(date){
+function daysRemaining(date) {
     let dateArray = date.split('-')
-    const diffTime = new Date(dateArray[0], dateArray[1]-1, dateArray[2]).getTime() - new Date().getTime()
-    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24))+1
+    const diffTime = new Date(dateArray[0], dateArray[1] - 1, dateArray[2]).getTime() - new Date().getTime()
+    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24)) + 1
     console.log("Days: " + diffDays)
     return diffDays
 }
-const sendFile = function( response, filename ) {
-    const type = mime.getType( filename )
-
-    fs.readFile( filename, function( err, content ) {
-
-        // if the error = null, then we've loaded the file successfully
-        if( err === null ) {
-
-            // status code: https://httpstatuses.com
-            response.writeHeader( 200, { 'Content-Type': type })
-            response.end( content )
-
-        }else{
-
-            // file not found, error code 404
-            response.writeHeader( 404 )
-            response.end( '404 Error: File Not Found' )
-
-        }
-    })
-}
 
 // launch the app
-app.listen(3000);
-console.log("App running at localhost:3000");
+app.listen(3000)
+console.log("App running at localhost:3000")
