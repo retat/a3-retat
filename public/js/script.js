@@ -96,6 +96,22 @@ function createDate(date) {
     return new Date(dateArray[0], dateArray[1] - 1, dateArray[2]).toLocaleDateString("en-US", options)
 }
 
+(function getUsername() {
+    (async () => {
+        const rawResponse = await fetch("/username", {
+            method: 'POST',
+            credentials: 'include',
+            headers: {
+                'Accept': 'application/json',
+                'Content-Type': 'application/json'
+            },
+        })
+        const content = await rawResponse.json()
+        console.log(content)
+        $("#navbarDropdown").html("User " + content)
+    })()
+})()
+
 window.onload = function () {
     $("#add").click(submit)
 }

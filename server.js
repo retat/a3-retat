@@ -6,6 +6,7 @@ const express = require('express'),
     session = require('express-session'),
     mongodb = require('mongodb'),
     mongo = require('mongodb').MongoClient,
+    bcrypt = require('bcrypt'),
     url = "mongodb+srv://root:admin@cluster0-qdoiu.azure.mongodb.net/test?retryWrites=true&w=majority"
 
 let currentUser = []
@@ -47,13 +48,20 @@ passport.use('local-login', new LocalStrategy(
                 })
             })
         }).then(function (result) {
-            console.log(result)
-            currentUser = result
-            if (username === result[0].username && password === result[0].password) {
-                return done(null, result[0])
+            if (typeof result[0] == 'undefined') {
+                return done(null, false, {"message": "Wrong username"})
             } else {
-                return done(null, false, {"message": "User not found."})
+                currentUser = result
+                bcrypt.compare(password, result[0].password, function (err, res) {
+                    if (res) {
+                        return done(null, result[0])
+                    } else {
+                        return done(null, false, {"message": "Password incorrect"})
+                    }
+                })
             }
+        }, function (err) {
+            return done(null, false, {"message": "User not found."})
         })
     })
 )
@@ -62,8 +70,33 @@ app.get("/home", isLoggedIn, function (req, res) {
     res.sendFile(__dirname + "/public/home.html")
 })
 
+app.get("/register", function (req, res) {
+    res.sendFile(__dirname + "/public/register.html")
+})
+
+app.post("/register", function (req, res) {
+    bcrypt.hash(req.body.password, 10, function (err, hash) {
+        new Promise(function (resolve, reject) {
+            mongo.connect(url, {
+                useNewUrlParser: true,
+                useUnifiedTopology: true
+            }, (err, client) => {
+                if (err) {
+                    reject(err)
+                }
+                const db = client.db('AssignmentApp')
+                const collection = db.collection('user')
+                collection.insertOne({
+                    "username": req.body.username,
+                    "password": hash
+                }).then(r => res.redirect("/"))
+            })
+        })
+    })
+})
+
 app.post("/login",
-    passport.authenticate("local-login", {failureRedirect: "/login"}),
+    passport.authenticate("local-login", {failureRedirect: "/"}),
     function (req, res) {
         res.redirect("/home")
     })
@@ -95,6 +128,7 @@ app.post('/submit', isLoggedIn, function (request, response) {
         })
     }).then(function (result) {
         response.writeHead(200, {"Content-Type": "application/json"})
+        //todo just use response.send?
         response.end(JSON.stringify(result))
     })
 })
@@ -173,6 +207,12 @@ app.post('/delete', isLoggedIn, function (request, response) {
         response.writeHead(200, {"Content-Type": "application/json"})
         response.end(JSON.stringify(result))
     })
+})
+
+app.post('/username', isLoggedIn, function (request, response) {
+    response.writeHead(200, {"Content-Type": "application/json"})
+    //todo just use response.send?
+    response.end(JSON.stringify(currentUser[0].username))
 })
 
 function createDate(date) {

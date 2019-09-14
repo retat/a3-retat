@@ -29,11 +29,11 @@
         Hi
     </h1>
     <h3>
-        <small class="text-muted">You need to login</small>
+        <small class="text-muted">You can register here</small>
     </h3>
 </div>
 <div class="container mt-3 col-sm-4">
-    <form method='post' action='/login'>
+    <form method='post' action='/register'>
         <div class="form-group">
             <label for="username">Username</label>
             <input pattern=".{0}|.{4,15}" required
@@ -46,8 +46,7 @@
                    title="Password should be between 6 - 15 characters" id="password"
                    class="form-control col-12" type='password' name='password'/>
         </div>
-        <button class="btn btn-primary" type='submit' value='submit'>Login</button>
-        <button class="btn btn-danger" type="button" onclick="location.href='/register'">Sign up</button>
+        <button class="btn btn-primary" type='submit' value='submit'>Sign up</button>
     </form>
 </div>
 </body>
