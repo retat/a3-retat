@@ -3,30 +3,13 @@ const express = require('express'),
     passport = require('passport'),
     LocalStrategy = require('passport-local').Strategy,
     bodyParser = require('body-parser'),
-    session = require('express-session')
-//todo put into DB!
-const appdata = []
-const users = [{"username": "rene", "password": "password"}]
-passport.serializeUser((user, done) => done(null, user.username))
-passport.deserializeUser((username, done) => {
-    const user = users.find(u => u.username === username)
-    console.log('deserializing:', username)
-    if (user !== undefined) {
-        done(null, user)
-    } else {
-        done(null, false, {message: 'user not found; session not restored'})
-    }
-})
-passport.use('local-login', new LocalStrategy(
-    function (username, password, done) {
-        getUserFromDB(username)
-        if (username === users[0].username && password === users[0].password) {
-            return done(null, users[0])
-        } else {
-            return done(null, false, {"message": "User not found."})
-        }
-    })
-)
+    session = require('express-session'),
+    mongodb = require('mongodb'),
+    mongo = require('mongodb').MongoClient,
+    url = "mongodb+srv://root:admin@cluster0-qdoiu.azure.mongodb.net/test?retryWrites=true&w=majority"
+
+let currentUser = []
+
 app.use(express.static('public'))
 app.use(bodyParser.json())
 app.use(bodyParser.urlencoded({extended: true}))
@@ -39,35 +22,46 @@ app.use(session({
 app.use(passport.initialize())
 app.use(passport.session())
 
-function isLoggedIn(req, res, next) {
-    if (req.isAuthenticated())
-        return next()
-    res.redirect("/")
-}
-
-function getUserFromDB(username) {
-    const url = "mongodb+srv://root:admin@cluster0-qdoiu.azure.mongodb.net/test?retryWrites=true&w=majority"
-    const mongo = require('mongodb').MongoClient
-    let user
-    mongo.connect(url, {
-        useNewUrlParser: true,
-        useUnifiedTopology: true
-    }, (err, client) => {
-        if (err) {
-            console.error(err)
-            return
-        }
-        const db = client.db('AssignmentApp')
-        const collection = db.collection('user')
-        collection.find({}).toArray((err, items) => {
-            console.log(items[0])
+passport.serializeUser((user, done) => done(null, currentUser[0].username))
+passport.deserializeUser((username, done) => {
+    if (currentUser[0] !== undefined) {
+        done(null, currentUser[0])
+    } else {
+        done(null, false, {message: 'user not found; session not restored'})
+    }
+})
+passport.use('local-login', new LocalStrategy(
+    function (username, password, done) {
+        new Promise(function (resolve, reject) {
+            mongo.connect(url, {
+                useNewUrlParser: true,
+                useUnifiedTopology: true
+            }, (err, client) => {
+                if (err) {
+                    reject(err)
+                }
+                const db = client.db('AssignmentApp')
+                const collection = db.collection('user')
+                collection.find({"username": username}).toArray((err, items) => {
+                    resolve(items)
+                })
+            })
+        }).then(function (result) {
+            console.log(result)
+            currentUser = result
+            if (username === result[0].username && password === result[0].password) {
+                return done(null, result[0])
+            } else {
+                return done(null, false, {"message": "User not found."})
+            }
         })
     })
-}
+)
 
 app.get("/home", isLoggedIn, function (req, res) {
     res.sendFile(__dirname + "/public/home.html")
 })
+
 app.post("/login",
     passport.authenticate("local-login", {failureRedirect: "/login"}),
     function (req, res) {
@@ -80,23 +74,105 @@ app.get("/logout", function (req, res) {
 
 app.post('/submit', isLoggedIn, function (request, response) {
     let parsedData = request.body
-    appdata.push({'Note': parsedData.Note, 'Date': createDate(parsedData.Date), 'Days': daysRemaining(parsedData.Date)})
-    response.writeHead(200, {"Content-Type": "application/json"})
-    response.end(JSON.stringify(appdata))
+    new Promise(function (resolve, reject) {
+        mongo.connect(url, {
+            useNewUrlParser: true,
+            useUnifiedTopology: true
+        }, (err, client) => {
+            if (err) {
+                reject(err)
+            }
+            const db = client.db('AssignmentApp')
+            const collection = db.collection('data')
+            collection.insertOne({
+                "Note": parsedData.Note,
+                "Date": createDate(parsedData.Date),
+                "Days": daysRemaining(parsedData.Date),
+                "UID": currentUser[0]._id
+            }).then(r => collection.find({"UID": currentUser[0]._id}).toArray((err, items) => {
+                resolve(items)
+            }))
+        })
+    }).then(function (result) {
+        response.writeHead(200, {"Content-Type": "application/json"})
+        response.end(JSON.stringify(result))
+    })
 })
 
 app.post('/refresh', isLoggedIn, function (request, response) {
-    response.writeHead(200, {"Content-Type": "application/json"})
-    response.end(JSON.stringify(appdata))
+    new Promise(function (resolve, reject) {
+        mongo.connect(url, {
+            useNewUrlParser: true,
+            useUnifiedTopology: true
+        }, (err, client) => {
+            if (err) {
+                reject(err)
+            }
+            const db = client.db('AssignmentApp')
+            const collection = db.collection('data')
+            collection.find({"UID": currentUser[0]._id}).toArray((err, items) => {
+                resolve(items)
+            })
+        })
+    }).then(function (result) {
+        response.writeHead(200, {"Content-Type": "application/json"})
+        response.end(JSON.stringify(result))
+    })
+})
+
+app.post('/update', isLoggedIn, function (request, response) {
+    let parsedData = request.body
+    new Promise(function (resolve, reject) {
+        mongo.connect(url, {
+            useNewUrlParser: true,
+            useUnifiedTopology: true
+        }, (err, client) => {
+            if (err) {
+                reject(err)
+            }
+            const db = client.db('AssignmentApp')
+            const collection = db.collection('data')
+            collection.updateOne({
+                _id: new mongodb.ObjectID(parsedData.Id)
+            }, {
+                $set: {
+                    "Note": parsedData.Note,
+                    "Date": createDate(parsedData.Date),
+                    "Days": daysRemaining(parsedData.Date)
+                }
+            }).then(r => collection.find({"UID": currentUser[0]._id}).toArray((err, items) => {
+                resolve(items)
+            }))
+        })
+    }).then(function (result) {
+        response.writeHead(200, {"Content-Type": "application/json"})
+        response.end(JSON.stringify(result))
+    })
 })
 
 app.post('/delete', isLoggedIn, function (request, response) {
     let parsedData = request.body
     let item = parsedData.Item
-    console.log("trying to delete " + item)
-    appdata.splice(item - 1, 1)
-    response.writeHead(200, {"Content-Type": "application/json"})
-    response.end(JSON.stringify(appdata))
+    new Promise(function (resolve, reject) {
+        mongo.connect(url, {
+            useNewUrlParser: true,
+            useUnifiedTopology: true
+        }, (err, client) => {
+            if (err) {
+                reject(err)
+            }
+            const db = client.db('AssignmentApp')
+            const collection = db.collection('data')
+            collection.removeOne({
+                _id: new mongodb.ObjectID(item)
+            }).then(r => collection.find({"UID": currentUser[0]._id}).toArray((err, items) => {
+                resolve(items)
+            }))
+        })
+    }).then(function (result) {
+        response.writeHead(200, {"Content-Type": "application/json"})
+        response.end(JSON.stringify(result))
+    })
 })
 
 function createDate(date) {
@@ -111,6 +187,12 @@ function daysRemaining(date) {
     const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24)) + 1
     console.log("Days: " + diffDays)
     return diffDays
+}
+
+function isLoggedIn(req, res, next) {
+    if (req.isAuthenticated())
+        return next()
+    res.redirect("/")
 }
 
 // launch the app
