@@ -1,14 +1,5 @@
 ## Assignment App
 
-Notes:
-- Assignments are now connected with a user (UID)
-- Days get updated if edit function is used
-- using express, mongoDB, bcrypt (hash with salt), cookies, passport
-- Login Credentials!
-testAccount
-password
-a3-retat.glitch.me
-
 With the Assignments Application an easy way is provided to how students keep track of all their assignments and due dates.
 For the Assignment 3 I decided to update A2 in multiple ways.
 ![Application login](https://i.imgur.com/quSk5L4.png)
