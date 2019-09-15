@@ -3,7 +3,8 @@
 Notes:
 - Assignments are now connected with a user (UID)
 - Days get updated if edit function is used
-- using express, mongoDB, bcrypt, cookies, passport
+- using express, mongoDB, bcrypt (hash with salt), cookies, passport
+- Login Credentials!
 
 a3-retat.glitch.me
 

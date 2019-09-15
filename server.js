@@ -127,9 +127,7 @@ app.post('/submit', isLoggedIn, function (request, response) {
             }))
         })
     }).then(function (result) {
-        response.writeHead(200, {"Content-Type": "application/json"})
-        //todo just use response.send?
-        response.end(JSON.stringify(result))
+        response.send(JSON.stringify(result))
     })
 })
 
@@ -149,8 +147,7 @@ app.post('/refresh', isLoggedIn, function (request, response) {
             })
         })
     }).then(function (result) {
-        response.writeHead(200, {"Content-Type": "application/json"})
-        response.end(JSON.stringify(result))
+        response.send(JSON.stringify(result))
     })
 })
 
@@ -179,8 +176,7 @@ app.post('/update', isLoggedIn, function (request, response) {
             }))
         })
     }).then(function (result) {
-        response.writeHead(200, {"Content-Type": "application/json"})
-        response.end(JSON.stringify(result))
+        response.send(JSON.stringify(result))
     })
 })
 
@@ -204,15 +200,12 @@ app.post('/delete', isLoggedIn, function (request, response) {
             }))
         })
     }).then(function (result) {
-        response.writeHead(200, {"Content-Type": "application/json"})
-        response.end(JSON.stringify(result))
+        response.send(JSON.stringify(result))
     })
 })
 
 app.post('/username', isLoggedIn, function (request, response) {
-    response.writeHead(200, {"Content-Type": "application/json"})
-    //todo just use response.send?
-    response.end(JSON.stringify(currentUser[0].username))
+    response.send(JSON.stringify(currentUser[0].username))
 })
 
 function createDate(date) {
