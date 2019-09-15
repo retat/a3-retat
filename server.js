@@ -7,15 +7,19 @@ const express = require('express'),
     mongodb = require('mongodb'),
     mongo = require('mongodb').MongoClient,
     bcrypt = require('bcrypt'),
+    favicon = require('serve-favicon'),
+    compression = require('compression'),
+    serveStatic = require('serve-static'),
     url = "mongodb+srv://root:admin@cluster0-qdoiu.azure.mongodb.net/test?retryWrites=true&w=majority"
 
 let currentUser = []
 
-app.use(express.static('public'))
+app.use(serveStatic('public'))
+app.use(favicon(__dirname + '/public/images/favicon.ico'))
+app.use(compression())
 app.use(bodyParser.json())
 app.use(bodyParser.urlencoded({extended: true}))
 app.use(session({
-    //todo put secret in db
     secret: "tHiSiSasEcRetStr",
     resave: false,
     saveUninitialized: false
@@ -228,6 +232,5 @@ function isLoggedIn(req, res, next) {
     res.redirect("/")
 }
 
-// launch the app
 app.listen(3000)
 console.log("App running at localhost:3000")
